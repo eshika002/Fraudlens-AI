@@ -4,6 +4,12 @@ import numpy as np
 from PIL import Image
 from io import BytesIO
 import re
+
+from confidence import calculate_confidence
+from timeline import generate_timeline
+from url_analyzer import analyze_urls
+from scam_categories import detect_extra_scams
+
 @st.cache_resource
 def load_reader():
     return easyocr.Reader(['en'])
@@ -162,6 +168,7 @@ if st.button("Analyze Scam Risk"):
         score = 0
         reasons = []
         text = message.lower()
+        
         keywords = {
             "winner": 25, "won": 25, "lottery": 30, "lucky draw": 30,
             "prize": 25, "reward": 20, "congratulations": 20, "selected": 15,
@@ -184,24 +191,34 @@ if st.button("Analyze Scam Risk"):
             "bill": 20,"pay": 20,"payment": 20,"today": 10,"power": 15,
             "electricity bill": 35,"service suspension": 25
         }
+        keyword_messages = {
+            "kyc": "KYC verification request detected",
+            "bank": "Banking-related terminology detected",
+            "verify": "Account verification language detected",
+            "account suspension": "Account suspension threat detected",
+            "immediately": "Urgency language detected",
+            "otp": "OTP request detected",
+            "aadhaar": "Sensitive identity information requested",
+            "pan": "Sensitive financial information requested"
+            }
+        ignore_keywords = [
+            "account","verification","bank","verify","today"
+            ]
 
         # Keyword Detection
 
         for word, points in keywords.items():
             if word in text:
                 score += points
-                reasons.append(f"Detected: {word}")
+                if word in keyword_messages:
+                    reasons.append(keyword_messages.get(word, f"Detected: {word}"))
+                elif word not in ignore_keywords:
+                    reasons.append(f"Detected: {word}")
 
         # URL Detection
-
-        urls = re.findall(r'https?://\S+',text)
-        if urls:
-            score += 15
-            reasons.append("Suspicious URL detected")
-            if("pay" in text or "payment" in text or "electricity" in text or "bank" in text or "verify" in text):
-                score +=20
-                reasons.append("High-risk URL with scam indicators")
-
+        url_score, url_findings, urls = analyze_urls(text)
+        score += url_score
+        
         # Special Rules
 
         if (("aadhaar" in text or "bank account" in text)
@@ -248,14 +265,26 @@ if st.button("Analyze Scam Risk"):
             scam_type = "Phishing Scam"
         elif ("electricity" in text or "power" in text or "bill" in text):
             scam_type = "Utility Payment Scam"
+        elif "verification" in text or "confirm your details" in text:
+            scam_type = "Account Verification Scam"
+
+        extra_score, extra_reasons, extra_type = detect_extra_scams(text)
+        score += extra_score
+        reasons.extend(extra_reasons)
+        if extra_type:
+            scam_type = extra_type
 
         score = min(int(score * 0.6),95)
+        st.write("Evidence Count:", len(reasons))
+        confidence = calculate_confidence(score,len(reasons))
 
         # Dashboard
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4= st.columns(4)
         col1.metric("Risk Score", f"{score}%")
-        col2.metric("Threat Type",scam_type.replace("Scam",""))
-        col3.metric("Evidence Found",len(reasons))
+        col2.metric("AI confidence", f"{confidence}%")
+        col3.metric("Threat Type",scam_type.replace("Scam",""))        
+        col4.metric("Evidence Found",len(reasons))
+
 
         st.write("## Threat Meter")
         st.progress(score / 100)
@@ -306,6 +335,13 @@ This message appears to be a phishing attempt.
 The sender is attempting to obtain login credentials or account information through deception.
 """
 
+        elif scam_type == "Delivery Scam":
+            ai_report="""
+This message appears to be a Delivery Scam.
+Scammers often impersonate courier or delivery companies and ask users to update delivery details, pay additional charges, or click malicious links.
+Always verify delivery information through the official courier website or app.
+"""
+
         elif scam_type == "Utility Payment Scam":
             ai_report = """
 This message appears to be a Utility Payment Scam.
@@ -320,90 +356,97 @@ Suspicious indicators were detected.Further verification is recommended.
 
         st.write("### 🤖 AI Investigation Report")
         st.info(ai_report)
-        
+        st.write("### 🕒 Investigation Timeline")
+        for i, step in enumerate(generate_timeline(), start=1):st.success(f"{i}. {step}")
 
         # URL Analysis
         if urls:
             st.write("### 🌐 URL Analysis") 
-            suspicious_words = [
-                "verify", "update", "kyc","lottery",              
-                "bank","winner","reward", "login"                  
-            ]
             for url in urls:
-                risk = "Low"
-                for word in suspicious_words:
-                    if word in url.lower():
-                        risk = "High"
-                st.write(f"URL: {url}")
-                st.write( f"Risk Level: {risk}")
+                st.code(url)
+            for finding in url_findings:
+                st.warning(f"⚠️ {finding}")
+
+                # risk = "Low"
+                # for word in suspicious_words:
+                #     if word in url.lower():
+                #         risk = "High"
+                # st.write(f"URL: {url}")
+                # st.write( f"Risk Level: {risk}")
 
         # Evidence
-        st.write("### Evidence Found")
-        if reasons:
-            for reason in reasons:
-                st.success(reason)
-                # st.write(f"✓ {reason}")
-
-        else:
-            st.write("No major scam indicators found.")
-
-        # Recommendation
-        st.write("### Recommendation")
-        if score >= 70:
-            st.error(
-                """
-Do NOT:
-• Click suspicious links
-• Share OTPs
-• Share Aadhaar/PAN details
-• Transfer money
-• Reveal banking credentials
-"""
-            )
-        elif score >= 40:
-            st.warning("Verify the sender through official channels before taking action.")
-        else:
-            st.success("No major risk indicators detected.")
-    #Download Investigation report
-    report = f"""
-    SCAMRADAR AI INVESTIGATION REPORT
-    ================================
-        Risk Score: {score}%
-        Threat Type: {scam_type}
-        Evidence Found:
+            st.write("### Evidence Found")
+            if reasons:
+                for reason in reasons:
+                    st.success(reason)
+                        # st.write(f"✓ {reason}")
+        
+            else:
+                st.write("No major scam indicators found.")
+        
+                # Recommendation
+            st.write("### Recommendation")
+            if score >= 70:
+                st.error(
+                        """
+        Do NOT:
+        • Click suspicious links
+        • Share OTPs
+        • Share Aadhaar/PAN details
+        • Transfer money
+        • Reveal banking credentials
         """
-    for reason in reasons:
-            report += f"\n- {reason}"
-
-    report += f"""
-            AI Investigation Report:
-            {ai_report}
-            Recommendation:
-            """
-    if score >= 70:
-        report += """
-                DO NOT:
-                - Click suspicious links
-                - Share OTPs
-                - Share Aadhaar/PAN details
-                - Transfer money
-                - Reveal banking credentials
+                    )
+            elif score >= 40:
+                st.warning("Verify the sender through official channels before taking action.")
+            else:
+                st.success("No major risk indicators detected.")
+            #Download Investigation report
+                report = f"""
+                AI INVESTIGATION REPORT
+                ================================
+                    Risk Score: {score}%
+                    Threat Type: {scam_type}
+                    Evidence Found:
+                    """
+                for reason in reasons:
+                        report += f"\n- {reason}"
+                report += """
+                Investigation Timeline:
+                -----------------------
                 """
-    elif score >= 40:
-        report += """
-                Verify the sender through official channels.
-                """
-    else:
-        report += """
-                No major risk indicators detected.
-                """
-    st.download_button(
-                label="📄 Download Investigation Report",
-                data=report,
-                file_name="ScamRadar_Report.txt",
-                mime="text/plain"
-                )
-                            
+                for i, step in enumerate(generate_timeline(), start=1):
+                    report += f"\n{i}. {step}"
+            
+                report += f"""
+                        AI Investigation Report:
+                        {ai_report}
+                        Recommendation:
+                        """
+                if score >= 70:
+                    report += """
+                            DO NOT:
+                            - Click suspicious links
+                            - Share OTPs
+                            - Share Aadhaar/PAN details
+                            - Transfer money
+                            - Reveal banking credentials
+                            """
+                elif score >= 40:
+                    report += """
+                            Verify the sender through official channels.
+                            """
+                else:
+                    report += """
+                            No major risk indicators detected.
+                            """
+                st.download_button(
+                            label="📄 Download Investigation Report",
+                            data=report,
+                            file_name="ScamRadar_Report.txt",
+                            mime="text/plain"
+                            )
+                                        
 st.markdown("---")
 st.markdown("""
 <center>
