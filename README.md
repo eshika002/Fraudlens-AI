@@ -1,26 +1,32 @@
-# FraudLens AI
-## Multi-Modal Cyber Fraud Investigation Platform
+# 🛡️ FraudLens AI
+An AI-powered fraud detection platform that investigates suspicious messages, screenshots, and URLs using OCR, Transformer-based NLP, and cybersecurity threat intelligence.
 
-FraudLens AI is an AI-powered cyber fraud investigation platform that analyzes suspicious messages, screenshots, and URLs.
+## 🚀 Features
+- 🖼️ OCR-based Screenshot Analysis
+- 🤖 Transformer-Powered Text Analysis
+- 🌐 Advanced URL Risk Detection
+- 📊 Risk Score & AI Confidence Score
+- 🕒 Investigation Timeline
+- 📑 Downloadable Investigation Reports
+- 🔍 Multi-Layer Fraud Detection Engine
 
-### Features
-- OCR Screenshot Analysis
-- URL Scanner
-- Banking/KYC Scam Detection
-- OTP Scam Detection
-- Lottery Scam Detection
-- Fake Job Scam Detection
-- Phishing Detection
-- Utility Payment Scam Detection
-- AI Investigation Reports
-- Downloadable Investigation Reports
+## 🎯 Supported Threats
+- 🏦 Banking / KYC Scams
+- 📦 Delivery Scams
+- ⚡ Utility Payment Scams
+- 🎁 Lottery & Prize Scams
+- 🔗 Phishing Links
 
-### Tech Stack
-- Python
-- Streamlit
-- EasyOCR
-- NumPy
-- Pillow
+## 🛠️ Technologies
+Python • Streamlit • EasyOCR • Hugging Face Transformers • PyTorch • NumPy • Pillow
 
-### Tagline
-Detect. Analyze. Protect.
+## ⚙️ Quick Start
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## 👩‍💻 Author:
+~eshika002
+
+**FraudLens AI — Turning suspicious messages into actionable intelligence.**
