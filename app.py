@@ -9,6 +9,7 @@ from confidence import calculate_confidence
 from timeline import generate_timeline
 from url_analyzer import analyze_urls
 from scam_categories import detect_extra_scams
+from ai_classifier import transformer_analysis
 
 @st.cache_resource
 def load_reader():
@@ -277,6 +278,13 @@ if st.button("Analyze Scam Risk"):
         score = min(int(score * 0.6),95)
         st.write("Evidence Count:", len(reasons))
         confidence = calculate_confidence(score,len(reasons))
+        ai_label, transformer_confidence = transformer_analysis(text)
+        if ai_label == "NEGATIVE":
+             prediction = "Potential Scam"
+        else:
+            prediction = "Likely safe"       
+
+
 
         # Dashboard
         col1, col2, col3, col4= st.columns(4)
@@ -284,6 +292,15 @@ if st.button("Analyze Scam Risk"):
         col2.metric("AI confidence", f"{confidence}%")
         col3.metric("Threat Type",scam_type.replace("Scam",""))        
         col4.metric("Evidence Found",len(reasons))
+
+        #Transformer Section
+        st.write("### 🤖 Transformer Analysis")
+        st.info(
+            f"""
+            Prediction: {prediction}
+            Model Confidence: {transformer_confidence}%
+            """
+            )
 
 
         st.write("## Threat Meter")
@@ -367,27 +384,21 @@ Suspicious indicators were detected.Further verification is recommended.
             for finding in url_findings:
                 st.warning(f"⚠️ {finding}")
 
-                # risk = "Low"
-                # for word in suspicious_words:
-                #     if word in url.lower():
-                #         risk = "High"
-                # st.write(f"URL: {url}")
-                # st.write( f"Risk Level: {risk}")
 
         # Evidence
-            st.write("### Evidence Found")
-            if reasons:
-                for reason in reasons:
-                    st.success(reason)
+        st.write("### Evidence Found")
+        if reasons:
+            for reason in reasons:
+                st.success(reason)
                         # st.write(f"✓ {reason}")
         
-            else:
-                st.write("No major scam indicators found.")
+        else:
+            st.write("No major scam indicators found.")
         
-                # Recommendation
-            st.write("### Recommendation")
-            if score >= 70:
-                st.error(
+        # Recommendation
+        st.write("### Recommendation")
+        if score >= 70:
+            st.error(
                         """
         Do NOT:
         • Click suspicious links
@@ -397,33 +408,33 @@ Suspicious indicators were detected.Further verification is recommended.
         • Reveal banking credentials
         """
                     )
-            elif score >= 40:
+        elif score >= 40:
                 st.warning("Verify the sender through official channels before taking action.")
-            else:
+        else:
                 st.success("No major risk indicators detected.")
-            #Download Investigation report
-                report = f"""
+         #Download Investigation report
+        report = f"""
                 AI INVESTIGATION REPORT
                 ================================
                     Risk Score: {score}%
                     Threat Type: {scam_type}
                     Evidence Found:
                     """
-                for reason in reasons:
-                        report += f"\n- {reason}"
-                report += """
+        for reason in reasons:
+            report += f"\n- {reason}"
+        report += """
                 Investigation Timeline:
                 -----------------------
                 """
-                for i, step in enumerate(generate_timeline(), start=1):
+        for i, step in enumerate(generate_timeline(), start=1):
                     report += f"\n{i}. {step}"
             
-                report += f"""
+        report += f"""
                         AI Investigation Report:
                         {ai_report}
                         Recommendation:
                         """
-                if score >= 70:
+        if score >= 70:
                     report += """
                             DO NOT:
                             - Click suspicious links
@@ -432,19 +443,20 @@ Suspicious indicators were detected.Further verification is recommended.
                             - Transfer money
                             - Reveal banking credentials
                             """
-                elif score >= 40:
-                    report += """
-                            Verify the sender through official channels.
-                            """
-                else:
-                    report += """
+        elif score >= 40:
+            report += """
+                    Verify the sender through official channels.
+                    """
+        else:
+            report += """
                             No major risk indicators detected.
                             """
-                st.download_button(
+        st.download_button(
                             label="📄 Download Investigation Report",
                             data=report,
                             file_name="ScamRadar_Report.txt",
-                            mime="text/plain"
+                            mime="text/plain",
+                            key="download_report"
                             )
                                         
 st.markdown("---")
