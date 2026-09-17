@@ -454,7 +454,7 @@ Suspicious indicators were detected.Further verification is recommended.
         st.download_button(
                             label="📄 Download Investigation Report",
                             data=report,
-                            file_name="ScamRadar_Report.txt",
+                            file_name="Fraudlens_Report.txt",
                             mime="text/plain",
                             key="download_report"
                             )
